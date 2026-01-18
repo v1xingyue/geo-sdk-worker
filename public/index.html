@@ -1,32 +1,845 @@
 <!doctype html>
-<html lang="en">
-	<head>
-		<meta charset="UTF-8" />
-		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-		<title>Hello, World!</title>
-	</head>
-	<body>
-		<h1 id="heading"></h1>
-		<p>This page comes from a static asset stored at `public/index.html` as configured in `wrangler.jsonc`.</p>
-		<button id="button" type="button">Fetch a random UUID</button>
-		<output id="random" for="button"></output>
-		<script>
-			fetch('/message')
-				.then((resp) => resp.text())
-				.then((text) => {
-					const h1 = document.getElementById('heading');
-					h1.textContent = text;
-				});
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IP 地址查询 - 查询您的公网 IP 和地理位置</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
 
-			const button = document.getElementById("button");
-			button.addEventListener("click", () => {
-				fetch('/random')
-					.then((resp) => resp.text())
-					.then((text) => {
-						const random = document.getElementById('random');
-						random.textContent = text;
-					});
-			});
-		</script>
-	</body>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px 30px;
+        }
+
+        .section {
+            margin-bottom: 40px;
+        }
+
+        .section h2 {
+            color: #667eea;
+            font-size: 1.8em;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .section h3 {
+            color: #764ba2;
+            font-size: 1.3em;
+            margin: 20px 0 10px;
+        }
+
+        .code-block {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px 20px;
+            border-radius: 4px;
+            overflow-x: auto;
+            margin: 15px 0;
+        }
+
+        .code-block code {
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.9em;
+            color: #e83e8c;
+        }
+
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #2196F3;
+            padding: 15px 20px;
+            border-radius: 4px;
+            margin: 15px 0;
+        }
+
+        .warning-box {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px 20px;
+            border-radius: 4px;
+            margin: 15px 0;
+        }
+
+        .demo-box {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border: 2px solid #667eea;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 6px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            min-height: 50px;
+        }
+
+        .api-list {
+            list-style: none;
+        }
+
+        .api-list li {
+            padding: 10px;
+            margin: 10px 0;
+            background: #f8f9fa;
+            border-radius: 4px;
+            border-left: 3px solid #667eea;
+        }
+
+        .api-list li strong {
+            color: #764ba2;
+        }
+
+        footer {
+            background: #f8f9fa;
+            padding: 20px 30px;
+            text-align: center;
+            color: #666;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: bold;
+            margin-right: 5px;
+        }
+
+        .badge-success {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .badge-danger {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        /* IP 显示区域样式 */
+        .ip-display {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+            border-bottom: 4px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .ip-main {
+            margin-bottom: 20px;
+        }
+
+        .ip-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+
+        .ip-address {
+            font-size: 3em;
+            font-weight: bold;
+            font-family: 'Monaco', 'Courier New', monospace;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+            margin: 10px 0;
+            letter-spacing: 2px;
+        }
+
+        .ip-info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .ip-info-item {
+            background: rgba(255, 255, 255, 0.15);
+            padding: 15px;
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+        }
+
+        .ip-info-item .label {
+            font-size: 0.85em;
+            opacity: 0.85;
+            margin-bottom: 5px;
+        }
+
+        .ip-info-item .value {
+            font-size: 1.2em;
+            font-weight: bold;
+        }
+
+        .ip-loading {
+            font-size: 1.5em;
+            opacity: 0.9;
+        }
+
+        @media (max-width: 768px) {
+            .ip-address {
+                font-size: 1.8em;
+            }
+            .ip-info-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🌍 IP 地址查询</h1>
+            <p>查询您的 IP 地址和地理位置信息 | Powered by Cloudflare Workers</p>
+        </header>
+
+        <!-- IP 地址显示区域 -->
+        <div class="ip-display" id="ip-display">
+            <div class="ip-main">
+                <div class="ip-label">您的公网 IP 地址</div>
+                <div class="ip-address" id="ip-address">
+                    <span class="ip-loading">正在获取...</span>
+                </div>
+                <div id="ip-version" style="font-size: 0.9em; opacity: 0.85; margin-top: 5px;"></div>
+            </div>
+            <div class="ip-info-grid" id="ip-info-grid" style="display: none;">
+                <div class="ip-info-item">
+                    <div class="label">🌏 国家/地区</div>
+                    <div class="value" id="ip-country">-</div>
+                </div>
+                <div class="ip-info-item">
+                    <div class="label">🏙️ 城市</div>
+                    <div class="value" id="ip-city">-</div>
+                </div>
+                <div class="ip-info-item">
+                    <div class="label">🌐 ISP</div>
+                    <div class="value" id="ip-isp">-</div>
+                </div>
+                <div class="ip-info-item">
+                    <div class="label">📍 位置</div>
+                    <div class="value" id="ip-location">-</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="content">
+            <!-- 地理位置信息 -->
+            <div class="section">
+                <h2>📍 详细地理位置信息</h2>
+                <div id="geo-loading" class="info-box">
+                    正在加载详细信息...
+                </div>
+                <div id="geo-info" style="display: none;">
+                    <div class="demo-box">
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-bottom: 15px;">
+                            <div>
+                                <strong>🌏 国家/地区:</strong>
+                                <div id="geo-country" style="margin-top: 5px; font-size: 1.1em;">-</div>
+                            </div>
+                            <div>
+                                <strong>🏙️ 城市:</strong>
+                                <div id="geo-city" style="margin-top: 5px; font-size: 1.1em;">-</div>
+                            </div>
+                            <div>
+                                <strong>🗺️ 地区:</strong>
+                                <div id="geo-region" style="margin-top: 5px; font-size: 1.1em;">-</div>
+                            </div>
+                            <div>
+                                <strong>🕐 时区:</strong>
+                                <div id="geo-timezone" style="margin-top: 5px; font-size: 1.1em;">-</div>
+                            </div>
+                        </div>
+                        <details style="margin-top: 15px;">
+                            <summary style="cursor: pointer; color: #667eea; font-weight: bold;">查看详细信息</summary>
+                            <pre id="geo-details" style="margin-top: 10px; background: #f8f9fa; padding: 15px; border-radius: 4px; overflow-x: auto; font-size: 0.9em;">加载中...</pre>
+                        </details>
+                    </div>
+                </div>
+            </div>
+
+            <!-- IP 地址查询工具 -->
+            <div class="section">
+                <h2>🔍 IP 地址查询工具</h2>
+                <p>输入任意 IP 地址，查询其地理位置和网络信息：</p>
+                <div class="info-box" style="margin: 10px 0;">
+                    <strong>💡 快捷查询：</strong> 您也可以通过 URL 直接查询，例如：
+                    <code style="display: block; margin-top: 5px; padding: 5px; background: #f8f9fa; border-radius: 3px;">
+                        https://geo.hns.cool/?ip=8.8.8.8
+                    </code>
+                </div>
+
+                <div class="demo-box">
+                    <form id="ip-query-form" style="display: grid; gap: 15px;">
+                        <div>
+                            <label for="ip-input" style="display: block; margin-bottom: 5px; font-weight: bold;">IP 地址:</label>
+                            <input type="text" id="ip-input" required
+                                   style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 6px; font-size: 1em; font-family: 'Monaco', 'Courier New', monospace;"
+                                   placeholder="例如: 8.8.8.8 或 2001:4860:4860::8888">
+                            <div style="margin-top: 5px; font-size: 0.85em; color: #666;">
+                                💡 支持 IPv4 和 IPv6 地址
+                            </div>
+                        </div>
+                        <div style="display: flex; gap: 10px;">
+                            <button type="submit" style="flex: 1;">🔍 查询</button>
+                            <button type="button" onclick="fillExampleIP()" style="flex: 1; background: #6c757d;">填入示例</button>
+                        </div>
+                    </form>
+
+                    <div id="ip-query-result" style="display: none; margin-top: 20px;">
+                        <div class="info-box">
+                            <h3 style="margin-bottom: 15px; color: #155724;">✅ 查询结果</h3>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-bottom: 15px;">
+                                <div>
+                                    <strong>📍 IP 地址:</strong>
+                                    <div id="query-ip" style="margin-top: 5px; font-size: 1.1em; font-family: monospace;">-</div>
+                                </div>
+                                <div>
+                                    <strong>🌏 国家/地区:</strong>
+                                    <div id="query-country" style="margin-top: 5px; font-size: 1.1em;">-</div>
+                                </div>
+                                <div>
+                                    <strong>🏙️ 城市:</strong>
+                                    <div id="query-city" style="margin-top: 5px; font-size: 1.1em;">-</div>
+                                </div>
+                                <div>
+                                    <strong>🌐 运营商:</strong>
+                                    <div id="query-isp" style="margin-top: 5px; font-size: 1.1em;">-</div>
+                                </div>
+                            </div>
+                            <div style="background: #fff3cd; padding: 10px; border-radius: 4px; margin-top: 15px; font-size: 0.9em;">
+                                💡 提示：可以分享当前页面URL来分享查询结果
+                            </div>
+                            <details style="margin-top: 15px;">
+                                <summary style="cursor: pointer; color: #667eea; font-weight: bold;">查看完整数据</summary>
+                                <pre id="query-details" style="margin-top: 10px; background: #f8f9fa; padding: 15px; border-radius: 4px; overflow-x: auto; font-size: 0.9em;">-</pre>
+                            </details>
+                        </div>
+                    </div>
+
+                    <div id="ip-query-error" style="display: none; margin-top: 20px;">
+                        <div class="warning-box">
+                            <strong>❌ 查询失败</strong>
+                            <p id="query-error-message" style="margin-top: 10px;">-</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- API Key 申请 -->
+            <div class="section">
+                <h2>🔑 申请 API Key</h2>
+                <p>填写以下信息以获取您的 App ID 和 API Key：</p>
+
+                <div class="demo-box">
+                    <form id="register-form" style="display: grid; gap: 15px;">
+                        <div>
+                            <label for="app-name" style="display: block; margin-bottom: 5px; font-weight: bold;">应用名称:</label>
+                            <input type="text" id="app-name" required
+                                   style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 6px; font-size: 1em;"
+                                   placeholder="例如: My Awesome App">
+                        </div>
+                        <div>
+                            <label for="app-email" style="display: block; margin-bottom: 5px; font-weight: bold;">邮箱 (可选):</label>
+                            <input type="email" id="app-email"
+                                   style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 6px; font-size: 1em;"
+                                   placeholder="your-email@example.com">
+                        </div>
+                        <div>
+                            <button type="submit" style="width: 100%;">申请 API Key</button>
+                        </div>
+                    </form>
+
+                    <div id="register-result" style="display: none; margin-top: 20px;">
+                        <div class="info-box">
+                            <h3 style="margin-bottom: 10px; color: #155724;">✅ 申请成功！请保存以下信息：</h3>
+                            <div style="background: white; padding: 15px; border-radius: 6px; margin-top: 10px;">
+                                <div style="margin-bottom: 10px;">
+                                    <strong>App ID:</strong>
+                                    <div id="result-appid" style="font-family: monospace; background: #f8f9fa; padding: 8px; margin-top: 5px; border-radius: 4px; word-break: break-all;">-</div>
+                                </div>
+                                <div>
+                                    <strong>API Key:</strong>
+                                    <div id="result-apikey" style="font-family: monospace; background: #f8f9fa; padding: 8px; margin-top: 5px; border-radius: 4px; word-break: break-all;">-</div>
+                                </div>
+                            </div>
+                            <div class="warning-box" style="margin-top: 15px;">
+                                <strong>⚠️ 重要提示：</strong> 请立即保存这些信息，关闭页面后将无法再次查看 API Key！
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 简介 -->
+            <div class="section">
+                <h2>📖 关于本工具</h2>
+                <p>这是一个基于 Cloudflare Workers 的 IP 地址查询工具，可以帮助您快速查询公网 IP 地址及详细的地理位置信息。同时提供地理位置感知的 JavaScript SDK，让开发者能够根据用户位置动态调整应用行为。</p>
+
+                <div class="info-box">
+                    <strong>🎯 核心特性：</strong>
+                    <ul style="margin-left: 20px; margin-top: 10px;">
+                        <li>快速查询您的公网 IP 地址（IPv4/IPv6）</li>
+                        <li>精准的地理位置信息（国家、城市、经纬度等）</li>
+                        <li>ISP 和网络信息查询</li>
+                        <li>全球部署，超低延迟响应</li>
+                        <li>提供开发者 SDK 接口</li>
+                    </ul>
+                </div>
+
+                <div class="warning-box">
+                    <strong>⚠️ 使用限制：</strong> 当前版本对中国境内用户提供受限功能模式。
+                </div>
+            </div>
+
+            <!-- 快速开始 -->
+            <div class="section">
+                <h2>🚀 快速开始</h2>
+
+                <h3>1. 引入 SDK</h3>
+                <p>在您的 HTML 页面中添加以下代码：</p>
+
+                <div class="code-block">
+                    <code>&lt;script src="https://geo.hns.cool/sdk.js"&gt;&lt;/script&gt;</code>
+                </div>
+
+                <h3>2. 初始化 SDK</h3>
+                <div class="code-block">
+                    <code>
+// SDK 加载后会自动创建 window.MySDK 对象<br>
+const result = MySDK.init({<br>
+&nbsp;&nbsp;appId: 'your-app-id',<br>
+&nbsp;&nbsp;apiKey: 'your-api-key'<br>
+});<br>
+<br>
+if (result.success) {<br>
+&nbsp;&nbsp;console.log('SDK 初始化成功！');<br>
+} else {<br>
+&nbsp;&nbsp;console.error('初始化失败：', result.error);<br>
+}
+                    </code>
+                </div>
+
+                <h3>3. 使用 SDK 功能</h3>
+                <div class="code-block">
+                    <code>
+// 检查 SDK 是否可用<br>
+if (MySDK.available) {<br>
+&nbsp;&nbsp;// 调用 API<br>
+&nbsp;&nbsp;MySDK.call('/api/endpoint', { data: 'value' })<br>
+&nbsp;&nbsp;&nbsp;&nbsp;.then(response => console.log(response))<br>
+&nbsp;&nbsp;&nbsp;&nbsp;.catch(error => console.error(error));<br>
+<br>
+&nbsp;&nbsp;// 获取用户信息<br>
+&nbsp;&nbsp;const userInfo = MySDK.getUserInfo();<br>
+&nbsp;&nbsp;console.log('用户信息：', userInfo);<br>
+} else {<br>
+&nbsp;&nbsp;console.log('SDK 当前不可用：', MySDK.message);<br>
+}
+                    </code>
+                </div>
+            </div>
+
+            <!-- API 文档 -->
+            <div class="section">
+                <h2>📚 API 文档</h2>
+
+                <ul class="api-list">
+                    <li>
+                        <strong>MySDK.version</strong><br>
+                        返回 SDK 版本号
+                    </li>
+                    <li>
+                        <strong>MySDK.country</strong><br>
+                        返回用户所在国家代码（如 'US', 'CN', 'JP' 等）
+                    </li>
+                    <li>
+                        <strong>MySDK.available</strong><br>
+                        返回 SDK 是否可用（boolean）
+                    </li>
+                    <li>
+                        <strong>MySDK.init(config)</strong><br>
+                        初始化 SDK，传入配置对象<br>
+                        返回：<code>{ success: boolean, country: string, error?: string }</code>
+                    </li>
+                    <li>
+                        <strong>MySDK.call(endpoint, data)</strong><br>
+                        调用 API 接口<br>
+                        参数：<code>endpoint</code> (string), <code>data</code> (object)<br>
+                        返回：Promise
+                    </li>
+                    <li>
+                        <strong>MySDK.getUserInfo()</strong><br>
+                        获取用户信息<br>
+                        返回：<code>{ country: string, timestamp: string }</code>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- 实时演示 -->
+            <div class="section">
+                <h2>🎮 实时演示</h2>
+                <p>点击下面的按钮测试 SDK 功能：</p>
+
+                <div class="demo-box">
+                    <button onclick="testSDK()">🧪 测试 SDK</button>
+                    <button onclick="testInit()">🔧 测试初始化</button>
+                    <button onclick="testUserInfo()">👤 获取用户信息</button>
+
+                    <div class="result" id="result">
+                        <em>点击上方按钮查看结果...</em>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 完整示例 -->
+            <div class="section">
+                <h2>💡 完整示例</h2>
+                <div class="code-block">
+                    <code>
+&lt;!DOCTYPE html&gt;<br>
+&lt;html&gt;<br>
+&lt;head&gt;<br>
+&nbsp;&nbsp;&lt;title&gt;Geo SDK Demo&lt;/title&gt;<br>
+&nbsp;&nbsp;&lt;script src="https://geo.hns.cool/sdk.js"&gt;&lt;/script&gt;<br>
+&lt;/head&gt;<br>
+&lt;body&gt;<br>
+&nbsp;&nbsp;&lt;h1&gt;My App&lt;/h1&gt;<br>
+&nbsp;&nbsp;&lt;div id="status"&gt;&lt;/div&gt;<br>
+<br>
+&nbsp;&nbsp;&lt;script&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;// 等待 SDK 加载<br>
+&nbsp;&nbsp;&nbsp;&nbsp;window.addEventListener('load', function() {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;const statusDiv = document.getElementById('status');<br>
+<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;// 显示 SDK 状态<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;statusDiv.innerHTML = `<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;p&gt;SDK 版本: ${MySDK.version}&lt;/p&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;p&gt;您的位置: ${MySDK.country}&lt;/p&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&lt;p&gt;SDK 状态: ${MySDK.available ? '✅ 可用' : '❌ 不可用'}&lt;/p&gt;<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;`;<br>
+<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;// 初始化 SDK<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;if (MySDK.available) {<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;MySDK.init({ appId: 'demo-app' });<br>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;}<br>
+&nbsp;&nbsp;&nbsp;&nbsp;});<br>
+&nbsp;&nbsp;&lt;/script&gt;<br>
+&lt;/body&gt;<br>
+&lt;/html&gt;
+                    </code>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>Powered by <strong>Cloudflare Workers</strong></p>
+            <p style="margin-top: 10px; font-size: 0.9em;">
+                SDK 地址: <a href="/sdk.js" target="_blank">https://geo.hns.cool/sdk.js</a>
+            </p>
+        </footer>
+    </div>
+
+    <!-- 加载实际的 SDK -->
+    <script src="/sdk.js"></script>
+
+    <!-- 测试脚本 -->
+    <script>
+        // 加载地理位置信息
+        async function loadGeoInfo() {
+            try {
+                const response = await fetch('/api/geo');
+                const data = await response.json();
+
+                // 更新顶部 IP 显示区域
+                document.getElementById('ip-address').innerHTML = data.ip;
+                document.getElementById('ip-version').textContent = `(${data.ipVersion})`;
+                document.getElementById('ip-country').textContent =
+                    `${data.countryName} (${data.country})`;
+                document.getElementById('ip-city').textContent =
+                    data.city === 'Unknown' ? '未知' : data.city;
+                document.getElementById('ip-isp').textContent =
+                    data.asOrganization === 'Unknown' ? '未知' : data.asOrganization;
+                document.getElementById('ip-location').textContent =
+                    data.latitude !== 'Unknown' ? `${data.latitude}, ${data.longitude}` : '未知';
+
+                // 显示 IP 信息网格
+                document.getElementById('ip-info-grid').style.display = 'grid';
+
+                // 隐藏加载提示
+                document.getElementById('geo-loading').style.display = 'none';
+                document.getElementById('geo-info').style.display = 'block';
+
+                // 填充基本信息
+                document.getElementById('geo-country').textContent =
+                    `${data.countryName} (${data.country})`;
+                document.getElementById('geo-city').textContent = data.city;
+                document.getElementById('geo-region').textContent =
+                    `${data.region} (${data.regionCode})`;
+                document.getElementById('geo-timezone').textContent = data.timezone;
+
+                // 填充详细信息
+                document.getElementById('geo-details').textContent =
+                    JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('ip-address').innerHTML =
+                    '<span style="font-size: 0.5em; color: #ffdddd;">加载失败</span>';
+                document.getElementById('geo-loading').innerHTML =
+                    '<span style="color: #721c24;">❌ 加载失败: ' + error.message + '</span>';
+            }
+        }
+
+        // 处理 API Key 申请表单
+        document.getElementById('register-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const appName = document.getElementById('app-name').value;
+            const email = document.getElementById('app-email').value;
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+
+            // 禁用按钮
+            submitBtn.disabled = true;
+            submitBtn.textContent = '申请中...';
+
+            try {
+                const response = await fetch('/api/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ appName, email })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // 显示结果
+                    document.getElementById('result-appid').textContent = data.appId;
+                    document.getElementById('result-apikey').textContent = data.apiKey;
+                    document.getElementById('register-result').style.display = 'block';
+
+                    // 重置表单
+                    e.target.reset();
+
+                    // 滚动到结果区域
+                    document.getElementById('register-result').scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'nearest'
+                    });
+                } else {
+                    alert('申请失败: ' + (data.error || '未知错误'));
+                }
+            } catch (error) {
+                alert('申请失败: ' + error.message);
+            } finally {
+                // 恢复按钮
+                submitBtn.disabled = false;
+                submitBtn.textContent = '申请 API Key';
+            }
+        });
+
+        // 处理 IP 地址查询表单
+        document.getElementById('ip-query-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const ipInput = document.getElementById('ip-input').value.trim();
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+
+            // 隐藏之前的结果和错误
+            document.getElementById('ip-query-result').style.display = 'none';
+            document.getElementById('ip-query-error').style.display = 'none';
+
+            // 禁用按钮
+            submitBtn.disabled = true;
+            submitBtn.textContent = '查询中...';
+
+            try {
+                const response = await fetch(`/api/geo-query?ip=${encodeURIComponent(ipInput)}`);
+                const data = await response.json();
+
+                if (data.error) {
+                    // 显示错误
+                    document.getElementById('query-error-message').textContent = data.error;
+                    document.getElementById('ip-query-error').style.display = 'block';
+                } else {
+                    // 显示结果
+                    document.getElementById('query-ip').textContent =
+                        `${data.ip} (${data.ipVersion})`;
+                    document.getElementById('query-country').textContent =
+                        `${data.countryName} (${data.country})`;
+                    document.getElementById('query-city').textContent =
+                        data.city === 'Unknown' ? '未知' : data.city;
+                    document.getElementById('query-isp').textContent =
+                        data.asOrganization === 'Unknown' ? '未知' : data.asOrganization;
+                    document.getElementById('query-details').textContent =
+                        JSON.stringify(data, null, 2);
+
+                    document.getElementById('ip-query-result').style.display = 'block';
+
+                    // 更新 URL，方便分享
+                    const newUrl = new URL(window.location);
+                    newUrl.searchParams.set('ip', ipInput);
+                    window.history.pushState({}, '', newUrl);
+
+                    // 滚动到结果区域
+                    document.getElementById('ip-query-result').scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'nearest'
+                    });
+                }
+            } catch (error) {
+                document.getElementById('query-error-message').textContent =
+                    '网络请求失败: ' + error.message;
+                document.getElementById('ip-query-error').style.display = 'block';
+            } finally {
+                // 恢复按钮
+                submitBtn.disabled = false;
+                submitBtn.textContent = '🔍 查询';
+            }
+        });
+
+        // 填入示例 IP 地址
+        function fillExampleIP() {
+            const examples = [
+                '8.8.8.8',           // Google DNS
+                '1.1.1.1',           // Cloudflare DNS
+                '114.114.114.114',   // 114 DNS
+                '208.67.222.222',    // OpenDNS
+            ];
+            const randomExample = examples[Math.floor(Math.random() * examples.length)];
+            document.getElementById('ip-input').value = randomExample;
+        }
+
+        function displayResult(title, data) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `
+                <strong>${title}</strong>
+                <pre style="margin-top: 10px; background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto;">${JSON.stringify(data, null, 2)}</pre>
+            `;
+        }
+
+        function testSDK() {
+            const sdkInfo = {
+                version: MySDK.version,
+                country: MySDK.country,
+                available: MySDK.available,
+                message: MySDK.message || '正常运行'
+            };
+            displayResult('SDK 状态信息', sdkInfo);
+        }
+
+        function testInit() {
+            const result = MySDK.init({
+                appId: 'demo-app-123',
+                apiKey: 'demo-key-456'
+            });
+            displayResult('初始化结果', result);
+        }
+
+        function testUserInfo() {
+            if (!MySDK.available) {
+                displayResult('获取用户信息', {
+                    error: 'SDK 不可用',
+                    message: MySDK.message,
+                    country: MySDK.country
+                });
+                return;
+            }
+
+            const userInfo = MySDK.getUserInfo();
+            displayResult('用户信息', userInfo);
+        }
+
+        // 页面加载时自动执行
+        window.addEventListener('load', function() {
+            // 加载地理位置信息
+            loadGeoInfo();
+
+            // 显示 SDK 状态
+            setTimeout(testSDK, 500);
+
+            // 检查 URL 参数中是否有 IP 地址
+            const urlParams = new URLSearchParams(window.location.search);
+            const ipParam = urlParams.get('ip');
+
+            if (ipParam) {
+                // 填入 IP 地址
+                document.getElementById('ip-input').value = ipParam;
+
+                // 滚动到 IP 查询区域
+                document.getElementById('ip-query-form').scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'center'
+                });
+
+                // 延迟触发查询，确保页面加载完成
+                setTimeout(function() {
+                    // 触发查询
+                    document.getElementById('ip-query-form').dispatchEvent(new Event('submit'));
+                }, 1000);
+            }
+        });
+    </script>
+</body>
 </html>

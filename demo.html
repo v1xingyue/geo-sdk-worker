@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>地理位置感知 SDK 演示</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        .status {
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        pre {
+            background: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+        }
+        #console {
+            max-height: 300px;
+            overflow-y: auto;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 3px;
+        }
+        .log-info { color: #4ec9b0; }
+        .log-warn { color: #dcdcaa; }
+        .log-error { color: #f48771; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🌍 地理位置感知 SDK 演示</h1>
+        <p>这个演示展示了如何使用动态 SDK，它会根据用户的地理位置返回不同的功能。</p>
+
+        <div id="status" class="status info">
+            正在加载 SDK...
+        </div>
+
+        <div style="margin: 20px 0;">
+            <h3>SDK 信息</h3>
+            <pre id="sdk-info">SDK 未加载</pre>
+        </div>
+
+        <div>
+            <h3>测试功能</h3>
+            <button onclick="testInit()">测试初始化</button>
+            <button onclick="testGetUserInfo()">获取用户信息</button>
+            <button onclick="testAPICall()">测试 API 调用</button>
+        </div>
+
+        <div style="margin-top: 20px;">
+            <h3>控制台输出</h3>
+            <div id="console"></div>
+        </div>
+
+        <div style="margin-top: 20px; font-size: 14px; color: #666;">
+            <p><strong>说明：</strong></p>
+            <ul>
+                <li>如果您来自中国境内，SDK 会返回受限版本，显示"应用暂时拒绝访问"</li>
+                <li>如果您来自其他地区，SDK 会返回完整功能版本</li>
+                <li>当前检测到的国家/地区会显示在上方的 SDK 信息中</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- 加载动态 SDK -->
+    <script src="http://localhost:8787/sdk.js"></script>
+
+    <script>
+        // 拦截 console 输出并显示在页面上
+        const consoleDiv = document.getElementById('console');
+        const originalConsole = {
+            log: console.log,
+            info: console.info,
+            warn: console.warn,
+            error: console.error
+        };
+
+        function addToConsole(message, type = 'info') {
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            consoleDiv.appendChild(entry);
+            consoleDiv.scrollTop = consoleDiv.scrollHeight;
+        }
+
+        console.log = function(...args) {
+            originalConsole.log.apply(console, args);
+            addToConsole(args.join(' '), 'info');
+        };
+
+        console.info = function(...args) {
+            originalConsole.info.apply(console, args);
+            addToConsole(args.join(' '), 'info');
+        };
+
+        console.warn = function(...args) {
+            originalConsole.warn.apply(console, args);
+            addToConsole(args.join(' '), 'warn');
+        };
+
+        console.error = function(...args) {
+            originalConsole.error.apply(console, args);
+            addToConsole(args.join(' '), 'error');
+        };
+
+        // 等待 SDK 加载
+        setTimeout(() => {
+            const statusDiv = document.getElementById('status');
+            const infoDiv = document.getElementById('sdk-info');
+
+            if (window.MySDK) {
+                if (window.MySDK.available) {
+                    statusDiv.className = 'status success';
+                    statusDiv.textContent = '✅ SDK 已加载 - 完整功能可用';
+                } else {
+                    statusDiv.className = 'status error';
+                    statusDiv.textContent = '⛔ SDK 已加载 - 受限模式（' + window.MySDK.message + '）';
+                }
+
+                infoDiv.textContent = JSON.stringify({
+                    version: window.MySDK.version,
+                    country: window.MySDK.country,
+                    available: window.MySDK.available
+                }, null, 2);
+            } else {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ SDK 加载失败';
+            }
+        }, 100);
+
+        // 测试函数
+        function testInit() {
+            try {
+                const result = window.MySDK.init({
+                    appId: 'demo-app',
+                    apiKey: 'test-key-123'
+                });
+                console.log('初始化结果:', JSON.stringify(result));
+            } catch (e) {
+                console.error('初始化失败:', e.message);
+            }
+        }
+
+        function testGetUserInfo() {
+            try {
+                const info = window.MySDK.getUserInfo();
+                console.log('用户信息:', JSON.stringify(info));
+            } catch (e) {
+                console.error('获取用户信息失败:', e.message);
+            }
+        }
+
+        function testAPICall() {
+            try {
+                console.log('尝试调用 API...');
+                window.MySDK.call('/api/test', { data: 'test' })
+                    .then(result => {
+                        console.log('API 调用成功:', JSON.stringify(result));
+                    })
+                    .catch(err => {
+                        console.error('API 调用失败:', err.message);
+                    });
+            } catch (e) {
+                console.error('API 调用异常:', e.message);
+            }
+        }
+    </script>
+</body>
+</html>
