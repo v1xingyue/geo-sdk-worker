@@ -96,10 +96,26 @@ npm run deploy
 
 ## 📚 API 文档
 
+### 快速测试
+
+我们提供了一个便捷的测试脚本，可以快速测试所有 API：
+
+```bash
+# 运行示例脚本
+bash examples/curl-examples.sh
+```
+
+📖 **更多 curl 使用技巧**: 查看 [curl 快速入门指南](examples/CURL_QUICK_START.md)
+
 ### 1. 获取当前 IP 的地理位置
 
 ```http
 GET /api/geo
+```
+
+**curl 命令：**
+```bash
+curl https://geo.hns.cool/api/geo
 ```
 
 **响应示例：**
@@ -127,6 +143,18 @@ GET /api/geo-query?ip=8.8.8.8
 
 **参数：**
 - `ip` (必需) - IPv4 或 IPv6 地址
+
+**curl 命令：**
+```bash
+# 查询 Google DNS
+curl "https://geo.hns.cool/api/geo-query?ip=8.8.8.8"
+
+# 查询 Cloudflare DNS
+curl "https://geo.hns.cool/api/geo-query?ip=1.1.1.1"
+
+# 查询国内 DNS
+curl "https://geo.hns.cool/api/geo-query?ip=114.114.114.114"
+```
 
 **响应示例：**
 ```json
