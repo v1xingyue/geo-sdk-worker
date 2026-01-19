@@ -19,17 +19,6 @@ Geo SDK Worker 是一个功能强大的 IP 地址查询工具，运行在 Cloudf
 - **URL 查询** - 通过 `?ip=xxx.xxx.xxx.xxx` 直接查询
 - **详细信息** - 国家、城市、经纬度、时区、ISP 等完整信息
 
-### 🐳 Docker Registry 代理 (NEW!)
-- **需要认证** - 使用 GitHub 登录获取 API Key
-- **加速拉取** - 加速 Docker Hub 镜像拉取速度
-- **智能缓存** - 缓存镜像层，减少重复下载
-- **全球 CDN** - 利用 Cloudflare CDN 加速分发
-- **使用跟踪** - 查看个人使用统计
-
-📖 **详细文档**:
-- [认证使用指南](docs/DOCKER_AUTH_GUIDE.md) ⭐ 必读
-- [Docker Registry 代理说明](docs/DOCKER_REGISTRY_PROXY.md)
-
 ### 🌐 地理位置感知 SDK
 - **动态加载** - 根据用户地理位置返回不同的 SDK 功能
 - **轻量级** - 仅 ~10KB，压缩后 ~3KB
@@ -243,51 +232,13 @@ Content-Type: application/json
 
 ## 🎯 使用场景
 
-### 场景 1: Docker 镜像加速（需要认证）
-
-#### 方式一：标准 registry-mirrors 配置（推荐）⭐
-
-```bash
-# 步骤 1: 访问网站获取 API Key
-# https://geo.hns.cool
-
-# 步骤 2: 登录
-docker login geo.hns.cool
-Username: app_xxxxxxxxxxxx  # 你的 appId
-Password: sk_xxxxxxxxxxxxxxxx  # 你的 apiKey
-
-# 步骤 3: 配置 daemon.json
-sudo nano /etc/docker/daemon.json
-# 添加: {"registry-mirrors": ["https://geo.hns.cool"]}
-
-# 步骤 4: 重启 Docker
-sudo systemctl restart docker
-
-# 步骤 5: 直接拉取镜像（不需要加域名前缀）
-docker pull nginx:latest
-docker pull mysql:8.0
-```
-
-#### 方式二：直接使用域名前缀
-
-```bash
-# 步骤 1: 登录
-docker login geo.hns.cool
-
-# 步骤 2: 拉取镜像（需要加域名前缀）
-docker pull geo.hns.cool/library/nginx:latest
-docker pull geo.hns.cool/library/mysql:8.0
-```
-
-📖 详细说明：[Docker 认证使用指南](docs/DOCKER_AUTH_GUIDE.md)
-
-### 场景 2: IP 归属地查询
+### 场景 1: IP 归属地查询
 ```bash
 # 直接通过 URL 查询
 https://geo.hns.cool/?ip=8.8.8.8
 ```
 
-### 场景 3: 网站访客分析
+### 场景 2: 网站访客分析
 ```javascript
 // 在网页中集成
 <script src="https://geo.hns.cool/sdk.js"></script>
