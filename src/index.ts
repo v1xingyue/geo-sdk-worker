@@ -3,7 +3,8 @@
  * 根据用户所在地区返回不同的 SDK 内容
  */
 
-import { handleDockerRegistryProxy, handleDockerHubAuth } from './docker-registry-proxy';
+import { handleDockerRegistryProxy } from './docker-registry-proxy';
+import { handleDockerRegistryAuth } from './docker-auth';
 
 interface Env {
 	API_KEYS: KVNamespace;
@@ -49,14 +50,17 @@ export default {
 		}
 
 		// 路由处理
+		// Docker Registry 认证
+		if (url.pathname.startsWith('/docker-auth/token')) {
+			return handleDockerRegistryAuth(request, env);
+		}
 		// Docker Registry 代理
-		if (url.pathname.startsWith('/docker-proxy')) {
+		else if (url.pathname.startsWith('/docker-proxy')) {
 			return handleDockerRegistryProxy(request, {
 				enableCache: true,
 				cacheTTL: 3600,
+				requireAuth: true, // 需要认证
 			});
-		} else if (url.pathname === '/docker-auth') {
-			return handleDockerHubAuth(request);
 		} else if (url.pathname === '/sdk.js') {
 			return handleSDK(country, corsHeaders);
 		} else if (url.pathname === '/api/geo') {

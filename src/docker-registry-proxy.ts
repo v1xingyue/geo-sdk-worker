@@ -3,6 +3,8 @@
  * 代理 Docker Hub 请求，加速国内访问
  */
 
+import { extractTokenFromRequest, verifyDockerToken } from './docker-auth';
+
 export interface DockerProxyConfig {
 	// 上游 Docker Registry 地址
 	upstreamRegistry: string;
@@ -10,12 +12,15 @@ export interface DockerProxyConfig {
 	cacheTTL: number;
 	// 是否启用缓存
 	enableCache: boolean;
+	// 是否需要认证
+	requireAuth: boolean;
 }
 
 const defaultConfig: DockerProxyConfig = {
 	upstreamRegistry: 'https://registry-1.docker.io',
 	cacheTTL: 3600, // 1 小时
 	enableCache: true,
+	requireAuth: true, // 默认需要认证
 };
 
 /**
@@ -36,17 +41,67 @@ export async function handleDockerRegistryProxy(
 	if (!registryPath || registryPath === '/') {
 		return new Response(
 			JSON.stringify({
-				message: 'Docker Registry Proxy',
+				message: 'Docker Registry Proxy with Authentication',
 				usage: {
-					pull: 'docker pull your-domain.com/docker-proxy/library/nginx:latest',
-					example: 'docker pull your-domain.com/docker-proxy/library/ubuntu:22.04',
+					login: 'docker login geo.hns.cool',
+					credentials: 'Use your appId as username and apiKey as password',
+					pull: 'docker pull geo.hns.cool/library/nginx:latest',
 				},
 				upstream: mergedConfig.upstreamRegistry,
+				authRequired: mergedConfig.requireAuth,
 			}),
 			{
 				headers: { 'Content-Type': 'application/json' },
 			}
 		);
+	}
+
+	// Docker Registry v2 API 认证检查
+	if (mergedConfig.requireAuth && registryPath.startsWith('/v2')) {
+		const token = extractTokenFromRequest(request);
+
+		// 如果是 /v2/ 根路径，总是返回 401 触发认证流程
+		if (registryPath === '/v2/' || registryPath === '/v2') {
+			if (!token || !(await verifyDockerToken(token))) {
+				return new Response(
+					JSON.stringify({
+						errors: [{
+							code: 'UNAUTHORIZED',
+							message: 'authentication required',
+							detail: 'Please login using: docker login geo.hns.cool',
+						}],
+					}),
+					{
+						status: 401,
+						headers: {
+							'Content-Type': 'application/json',
+							'Docker-Distribution-Api-Version': 'registry/2.0',
+							'WWW-Authenticate': `Bearer realm="https://${url.host}/docker-auth/token",service="${url.host}",scope="registry:catalog:*"`,
+						},
+					}
+				);
+			}
+		}
+
+		// 其他 /v2/ 路径需要验证 token
+		if (!token || !(await verifyDockerToken(token))) {
+			return new Response(
+				JSON.stringify({
+					errors: [{
+						code: 'UNAUTHORIZED',
+						message: 'authentication required',
+					}],
+				}),
+				{
+					status: 401,
+					headers: {
+						'Content-Type': 'application/json',
+						'Docker-Distribution-Api-Version': 'registry/2.0',
+						'WWW-Authenticate': `Bearer realm="https://${url.host}/docker-auth/token",service="${url.host}"`,
+					},
+				}
+			);
+		}
 	}
 
 	// 构建上游 URL
@@ -162,37 +217,4 @@ function shouldCacheResponse(path: string, response: Response): boolean {
 	}
 
 	return false;
-}
-
-/**
- * 处理 Docker Hub 特定的认证
- */
-export async function handleDockerHubAuth(request: Request): Promise<Response> {
-	const authUrl = 'https://auth.docker.io/token';
-	const url = new URL(request.url);
-
-	// 转发认证请求
-	const authRequest = new Request(
-		authUrl + url.search,
-		{
-			method: request.method,
-			headers: request.headers,
-		}
-	);
-
-	try {
-		const response = await fetch(authRequest);
-		return new Response(response.body, {
-			status: response.status,
-			headers: response.headers,
-		});
-	} catch (error) {
-		return new Response(
-			JSON.stringify({ error: 'Authentication failed' }),
-			{
-				status: 502,
-				headers: { 'Content-Type': 'application/json' },
-			}
-		);
-	}
 }

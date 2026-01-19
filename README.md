@@ -20,12 +20,15 @@ Geo SDK Worker 是一个功能强大的 IP 地址查询工具，运行在 Cloudf
 - **详细信息** - 国家、城市、经纬度、时区、ISP 等完整信息
 
 ### 🐳 Docker Registry 代理 (NEW!)
+- **需要认证** - 使用 GitHub 登录获取 API Key
 - **加速拉取** - 加速 Docker Hub 镜像拉取速度
 - **智能缓存** - 缓存镜像层，减少重复下载
 - **全球 CDN** - 利用 Cloudflare CDN 加速分发
-- **简单配置** - 只需添加镜像源即可使用
+- **使用跟踪** - 查看个人使用统计
 
-📖 **详细文档**: [Docker Registry 代理使用指南](docs/DOCKER_REGISTRY_PROXY.md)
+📖 **详细文档**:
+- [认证使用指南](docs/DOCKER_AUTH_GUIDE.md) ⭐ 必读
+- [Docker Registry 代理说明](docs/DOCKER_REGISTRY_PROXY.md)
 
 ### 🌐 地理位置感知 SDK
 - **动态加载** - 根据用户地理位置返回不同的 SDK 功能
@@ -240,23 +243,26 @@ Content-Type: application/json
 
 ## 🎯 使用场景
 
-### 场景 1: Docker 镜像加速
+### 场景 1: Docker 镜像加速（需要认证）
+
 ```bash
-# 配置 Docker daemon
-sudo nano /etc/docker/daemon.json
+# 步骤 1: 访问网站获取 API Key
+# https://geo.hns.cool
 
-# 添加镜像源
-{
-  "registry-mirrors": ["https://geo.hns.cool/docker-proxy"]
-}
+# 步骤 2: 使用 GitHub 登录并申请 API Key
+# 你会获得：appId 和 apiKey
 
-# 重启 Docker
-sudo systemctl restart docker
+# 步骤 3: Docker 登录
+docker login geo.hns.cool
+Username: app_xxxxxxxxxxxx  # 你的 appId
+Password: sk_xxxxxxxxxxxxxxxx  # 你的 apiKey
 
-# 快速拉取镜像
-docker pull nginx:latest
-docker pull mysql:8.0
+# 步骤 4: 拉取镜像
+docker pull geo.hns.cool/library/nginx:latest
+docker pull geo.hns.cool/library/mysql:8.0
 ```
+
+📖 详细说明：[Docker 认证使用指南](docs/DOCKER_AUTH_GUIDE.md)
 
 ### 场景 2: IP 归属地查询
 ```bash
