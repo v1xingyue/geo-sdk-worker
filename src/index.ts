@@ -5,6 +5,28 @@
 
 interface Env {
 	API_KEYS: KVNamespace;
+	GITHUB_CLIENT_ID: string;
+	GITHUB_CLIENT_SECRET: string;
+	GITHUB_REDIRECT_URI: string;
+	SESSION_SECRET: string;
+}
+
+interface SessionData {
+	userId: string;
+	githubId: number;
+	githubLogin: string;
+	githubAvatar: string;
+	githubEmail?: string;
+	githubName?: string;
+	createdAt: string;
+}
+
+interface GitHubUser {
+	id: number;
+	login: string;
+	avatar_url: string;
+	email?: string;
+	name?: string;
 }
 
 export default {
@@ -31,6 +53,14 @@ export default {
 			return handleGeoInfo(request, corsHeaders);
 		} else if (url.pathname === '/api/geo-query') {
 			return handleGeoQuery(request, corsHeaders);
+		} else if (url.pathname === '/auth/github') {
+			return handleGitHubLogin(env);
+		} else if (url.pathname === '/auth/github/callback') {
+			return handleGitHubCallback(request, env);
+		} else if (url.pathname === '/auth/logout') {
+			return handleLogout(corsHeaders);
+		} else if (url.pathname === '/api/user') {
+			return handleGetUser(request, env, corsHeaders);
 		} else if (url.pathname === '/api/register') {
 			return handleRegister(request, env, country, corsHeaders);
 		} else if (url.pathname === '/api/validate') {
@@ -236,7 +266,7 @@ function getCountryName(code: string): string {
 }
 
 /**
- * 处理 API Key 申请
+ * 处理 API Key 申请（需要登录）
  */
 async function handleRegister(
 	request: Request,
@@ -251,22 +281,36 @@ async function handleRegister(
 		});
 	}
 
+	// 验证用户是否已登录
+	const session = await getSessionFromRequest(request, env);
+	if (!session) {
+		return new Response(
+			JSON.stringify({ error: '请先使用 GitHub 登录' }),
+			{
+				status: 401,
+				headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+			}
+		);
+	}
+
 	try {
 		const body = await request.json() as { appName?: string; email?: string };
 		const appName = body.appName || 'Unnamed App';
-		const email = body.email || '';
+		const email = body.email || session.githubEmail || '';
 
 		// 生成唯一的 App ID 和 API Key
 		const appId = generateAppId();
 		const apiKey = generateApiKey();
 
-		// 存储到 KV
+		// 存储到 KV，关联 GitHub 用户
 		const apiKeyData = {
 			appId,
 			apiKey,
 			appName,
 			email,
 			country,
+			githubId: session.githubId,
+			githubLogin: session.githubLogin,
 			createdAt: new Date().toISOString(),
 			usageCount: 0,
 		};
@@ -274,12 +318,23 @@ async function handleRegister(
 		await env.API_KEYS.put(appId, JSON.stringify(apiKeyData));
 		await env.API_KEYS.put(`key_${apiKey}`, appId); // 反向索引
 
+		// 记录用户的 API Keys
+		const userKeysKey = `user_keys_${session.userId}`;
+		const userKeysStr = await env.API_KEYS.get(userKeysKey);
+		const userKeys = userKeysStr ? JSON.parse(userKeysStr) : [];
+		userKeys.push(appId);
+		await env.API_KEYS.put(userKeysKey, JSON.stringify(userKeys));
+
 		return new Response(
 			JSON.stringify({
 				success: true,
 				appId,
 				apiKey,
 				message: 'API Key 创建成功',
+				user: {
+					login: session.githubLogin,
+					id: session.githubId,
+				},
 			}),
 			{
 				headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -597,4 +652,223 @@ function generateSDK(isChinaMainland: boolean, country: string): string {
 })();
 `.trim();
 	}
+}
+
+/**
+ * ==================== GitHub OAuth 和会话管理 ====================
+ */
+
+/**
+ * 生成会话 Token
+ */
+function generateSessionToken(): string {
+	return 'sess_' + generateRandomString(48);
+}
+
+/**
+ * 创建会话
+ */
+async function createSession(env: Env, githubUser: GitHubUser): Promise<string> {
+	const sessionToken = generateSessionToken();
+	const userId = `user_github_${githubUser.id}`;
+
+	const sessionData: SessionData = {
+		userId,
+		githubId: githubUser.id,
+		githubLogin: githubUser.login,
+		githubAvatar: githubUser.avatar_url,
+		githubEmail: githubUser.email,
+		githubName: githubUser.name,
+		createdAt: new Date().toISOString(),
+	};
+
+	// 会话有效期 30 天
+	await env.API_KEYS.put(`session_${sessionToken}`, JSON.stringify(sessionData), {
+		expirationTtl: 30 * 24 * 60 * 60,
+	});
+
+	// 存储用户信息
+	await env.API_KEYS.put(userId, JSON.stringify({
+		githubId: githubUser.id,
+		login: githubUser.login,
+		avatar: githubUser.avatar_url,
+		email: githubUser.email,
+		name: githubUser.name,
+		lastLoginAt: new Date().toISOString(),
+	}));
+
+	return sessionToken;
+}
+
+/**
+ * 验证会话
+ */
+async function validateSession(env: Env, sessionToken: string | null): Promise<SessionData | null> {
+	if (!sessionToken) {
+		return null;
+	}
+
+	const sessionDataStr = await env.API_KEYS.get(`session_${sessionToken}`);
+	if (!sessionDataStr) {
+		return null;
+	}
+
+	return JSON.parse(sessionDataStr) as SessionData;
+}
+
+/**
+ * 从请求中获取会话
+ */
+async function getSessionFromRequest(request: Request, env: Env): Promise<SessionData | null> {
+	const cookieHeader = request.headers.get('Cookie');
+	if (!cookieHeader) {
+		return null;
+	}
+
+	const cookies = parseCookies(cookieHeader);
+	const sessionToken = cookies['session'];
+
+	return validateSession(env, sessionToken);
+}
+
+/**
+ * 解析 Cookie 字符串
+ */
+function parseCookies(cookieHeader: string): Record<string, string> {
+	const cookies: Record<string, string> = {};
+	cookieHeader.split(';').forEach(cookie => {
+		const [name, ...rest] = cookie.split('=');
+		cookies[name.trim()] = rest.join('=').trim();
+	});
+	return cookies;
+}
+
+/**
+ * 处理 GitHub 登录 - 重定向到 GitHub
+ */
+function handleGitHubLogin(env: Env): Response {
+	const githubAuthUrl = new URL('https://github.com/login/oauth/authorize');
+	githubAuthUrl.searchParams.set('client_id', env.GITHUB_CLIENT_ID);
+	githubAuthUrl.searchParams.set('redirect_uri', env.GITHUB_REDIRECT_URI);
+	githubAuthUrl.searchParams.set('scope', 'read:user user:email');
+
+	return Response.redirect(githubAuthUrl.toString(), 302);
+}
+
+/**
+ * 处理 GitHub 回调
+ */
+async function handleGitHubCallback(request: Request, env: Env): Promise<Response> {
+	const url = new URL(request.url);
+	const code = url.searchParams.get('code');
+
+	if (!code) {
+		return new Response('Missing authorization code', { status: 400 });
+	}
+
+	try {
+		// 1. 用 code 换取 access_token
+		const tokenResponse = await fetch('https://github.com/login/oauth/access_token', {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'Accept': 'application/json',
+			},
+			body: JSON.stringify({
+				client_id: env.GITHUB_CLIENT_ID,
+				client_secret: env.GITHUB_CLIENT_SECRET,
+				code,
+				redirect_uri: env.GITHUB_REDIRECT_URI,
+			}),
+		});
+
+		const tokenData = await tokenResponse.json() as any;
+
+		if (tokenData.error || !tokenData.access_token) {
+			console.error('GitHub OAuth error:', tokenData);
+			return new Response('Failed to authenticate with GitHub', { status: 401 });
+		}
+
+		const accessToken = tokenData.access_token;
+
+		// 2. 获取用户信息
+		const userResponse = await fetch('https://api.github.com/user', {
+			headers: {
+				'Authorization': `Bearer ${accessToken}`,
+				'Accept': 'application/vnd.github.v3+json',
+				'User-Agent': 'Geo-SDK-Worker',
+			},
+		});
+
+		if (!userResponse.ok) {
+			return new Response('Failed to fetch user info from GitHub', { status: 401 });
+		}
+
+		const githubUser = await userResponse.json() as GitHubUser;
+
+		// 3. 创建会话
+		const sessionToken = await createSession(env, githubUser);
+
+		// 4. 设置 Cookie 并重定向回首页
+		return new Response(null, {
+			status: 302,
+			headers: {
+				'Location': '/',
+				'Set-Cookie': `session=${sessionToken}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${30 * 24 * 60 * 60}`,
+			},
+		});
+	} catch (error) {
+		console.error('GitHub callback error:', error);
+		return new Response('Authentication failed', { status: 500 });
+	}
+}
+
+/**
+ * 处理登出
+ */
+function handleLogout(corsHeaders: Record<string, string>): Response {
+	return new Response(null, {
+		status: 302,
+		headers: {
+			...corsHeaders,
+			'Location': '/',
+			'Set-Cookie': 'session=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0',
+		},
+	});
+}
+
+/**
+ * 获取当前登录用户信息
+ */
+async function handleGetUser(
+	request: Request,
+	env: Env,
+	corsHeaders: Record<string, string>
+): Promise<Response> {
+	const session = await getSessionFromRequest(request, env);
+
+	if (!session) {
+		return new Response(
+			JSON.stringify({ authenticated: false }),
+			{
+				headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+			}
+		);
+	}
+
+	return new Response(
+		JSON.stringify({
+			authenticated: true,
+			user: {
+				id: session.githubId,
+				login: session.githubLogin,
+				avatar: session.githubAvatar,
+				email: session.githubEmail,
+				name: session.githubName,
+			},
+		}),
+		{
+			headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+		}
+	);
 }
