@@ -245,19 +245,36 @@ Content-Type: application/json
 
 ### 场景 1: Docker 镜像加速（需要认证）
 
+#### 方式一：标准 registry-mirrors 配置（推荐）⭐
+
 ```bash
 # 步骤 1: 访问网站获取 API Key
 # https://geo.hns.cool
 
-# 步骤 2: 使用 GitHub 登录并申请 API Key
-# 你会获得：appId 和 apiKey
-
-# 步骤 3: Docker 登录
+# 步骤 2: 登录
 docker login geo.hns.cool
 Username: app_xxxxxxxxxxxx  # 你的 appId
 Password: sk_xxxxxxxxxxxxxxxx  # 你的 apiKey
 
-# 步骤 4: 拉取镜像
+# 步骤 3: 配置 daemon.json
+sudo nano /etc/docker/daemon.json
+# 添加: {"registry-mirrors": ["https://geo.hns.cool"]}
+
+# 步骤 4: 重启 Docker
+sudo systemctl restart docker
+
+# 步骤 5: 直接拉取镜像（不需要加域名前缀）
+docker pull nginx:latest
+docker pull mysql:8.0
+```
+
+#### 方式二：直接使用域名前缀
+
+```bash
+# 步骤 1: 登录
+docker login geo.hns.cool
+
+# 步骤 2: 拉取镜像（需要加域名前缀）
 docker pull geo.hns.cool/library/nginx:latest
 docker pull geo.hns.cool/library/mysql:8.0
 ```

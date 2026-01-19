@@ -34,15 +34,169 @@
 
 ## 🚀 使用方法
 
-### 1. Docker Login
+### 方式一：标准 registry-mirrors 配置（推荐）⭐
 
-使用获得的凭证登录：
+这种方式最简单，配置后可以直接 `docker pull nginx:latest` 不需要加域名前缀。
+
+#### Linux 配置
 
 ```bash
-# 使用 appId 作为用户名，apiKey 作为密码
+# 步骤 1: 登录
 docker login geo.hns.cool
+Username: app_xxxxxxxxxxxx
+Password: sk_xxxxxxxxxxxxxxxx
 
-# 输入凭证：
+# 步骤 2: 配置 Docker daemon
+sudo nano /etc/docker/daemon.json
+```
+
+添加以下内容：
+
+```json
+{
+  "registry-mirrors": ["https://geo.hns.cool"]
+}
+```
+
+```bash
+# 步骤 3: 重启 Docker
+sudo systemctl restart docker
+
+# 步骤 4: 直接拉取镜像（不需要加域名前缀）
+docker pull nginx:latest
+docker pull alpine:latest
+docker pull mysql:8.0
+```
+
+#### macOS / Windows Docker Desktop 配置
+
+1. 先登录：
+```bash
+docker login geo.hns.cool
+Username: app_xxxxxxxxxxxx
+Password: sk_xxxxxxxxxxxxxxxx
+```
+
+2. 打开 Docker Desktop → Settings → Docker Engine
+
+3. 添加配置：
+```json
+{
+  "registry-mirrors": ["https://geo.hns.cool"]
+}
+```
+
+4. 点击 Apply & Restart
+
+5. 直接拉取镜像：
+```bash
+docker pull nginx:latest
+docker pull ubuntu:22.04
+```
+
+---
+
+### 方式二：直接使用域名前缀
+
+如果不想配置 daemon.json，可以在镜像名称前加域名。
+
+```bash
+# 步骤 1: 登录
+docker login geo.hns.cool
+Username: app_xxxxxxxxxxxx
+Password: sk_xxxxxxxxxxxxxxxx
+
+# 步骤 2: 拉取镜像（需要加域名前缀）
+docker pull geo.hns.cool/library/nginx:latest
+docker pull geo.hns.cool/library/alpine:latest
+docker pull geo.hns.cool/library/mysql:8.0
+```
+
+**注意**：使用这种方式时，必须在镜像名称前加 `geo.hns.cool/library/`
+
+---
+
+## 🆚 两种方式对比
+
+| 特性 | 方式一（registry-mirrors）⭐ | 方式二（域名前缀） |
+|------|---------------------------|------------------|
+| **配置复杂度** | 需要配置 daemon.json | 无需配置 |
+| **镜像路径** | `docker pull nginx:latest` | `docker pull geo.hns.cool/library/nginx:latest` |
+| **适用场景** | 日常使用 | 临时使用 |
+| **推荐度** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐ |
+
+**推荐使用方式一**，配置一次后就可以像平时一样使用 Docker，无需修改现有脚本。
+
+---
+
+## 📋 使用示例
+
+### 示例 1：使用方式一（推荐）
+
+```bash
+# 1. 登录
+docker login geo.hns.cool
+Username: app_abc123
+Password: sk_xyz789
+
+# 2. 配置镜像源
+sudo nano /etc/docker/daemon.json
+# 添加: {"registry-mirrors": ["https://geo.hns.cool"]}
+
+# 3. 重启 Docker
+sudo systemctl restart docker
+
+# 4. 正常使用（自动通过代理）
+docker pull nginx:latest
+docker pull redis:7
+docker run -d nginx:latest
+```
+
+### 示例 2：使用方式二
+
+```bash
+# 1. 登录
+docker login geo.hns.cool
+Username: app_abc123
+Password: sk_xyz789
+
+# 2. 拉取镜像（带域名前缀）
+docker pull geo.hns.cool/library/nginx:latest
+docker pull geo.hns.cool/library/redis:7
+docker run -d geo.hns.cool/library/nginx:latest
+```
+
+---
+
+## ⚙️ 验证配置
+
+### 检查镜像源是否生效（方式一）
+
+```bash
+# 查看 Docker 信息
+docker info | grep -A 5 "Registry Mirrors"
+
+# 应该看到：
+# Registry Mirrors:
+#   https://geo.hns.cool/
+```
+
+### 测试拉取
+
+```bash
+# 方式一：直接拉取
+docker pull alpine:latest
+
+# 方式二：带域名
+docker pull geo.hns.cool/library/alpine:latest
+
+# 查看拉取的镜像
+docker images | grep alpine
+```
+
+---
+
+## 🔍 其他章节保持不变...
 # Username: app_xxxxxxxxxxxx
 # Password: sk_xxxxxxxxxxxxxxxx
 ```

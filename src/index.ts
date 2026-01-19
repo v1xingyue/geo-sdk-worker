@@ -50,16 +50,24 @@ export default {
 		}
 
 		// 路由处理
-		// Docker Registry 认证
-		if (url.pathname.startsWith('/docker-auth/token')) {
+		// Docker Registry 认证端点
+		if (url.pathname.startsWith('/docker-auth/token') || url.pathname.startsWith('/v2/auth/token')) {
 			return handleDockerRegistryAuth(request, env);
 		}
-		// Docker Registry 代理
+		// Docker Registry 代理 - 支持标准路径 /v2/
+		else if (url.pathname.startsWith('/v2')) {
+			return handleDockerRegistryProxy(request, {
+				enableCache: true,
+				cacheTTL: 3600,
+				requireAuth: true,
+			});
+		}
+		// Docker Registry 代理 - 兼容旧路径 /docker-proxy
 		else if (url.pathname.startsWith('/docker-proxy')) {
 			return handleDockerRegistryProxy(request, {
 				enableCache: true,
 				cacheTTL: 3600,
-				requireAuth: true, // 需要认证
+				requireAuth: true,
 			});
 		} else if (url.pathname === '/sdk.js') {
 			return handleSDK(country, corsHeaders);

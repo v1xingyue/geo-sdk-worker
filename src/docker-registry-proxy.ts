@@ -34,18 +34,36 @@ export async function handleDockerRegistryProxy(
 	const url = new URL(request.url);
 
 	// 提取 Docker Registry 路径
-	// 例如: /v2/library/nginx/manifests/latest
-	const registryPath = url.pathname.replace(/^\/docker-proxy/, '');
+	// 支持两种路径格式：
+	// 1. /v2/... (标准 Docker Registry 路径)
+	// 2. /docker-proxy/v2/... (兼容旧路径)
+	let registryPath = url.pathname;
+	if (registryPath.startsWith('/docker-proxy')) {
+		registryPath = registryPath.replace(/^\/docker-proxy/, '');
+	}
 
-	// 如果没有路径，返回帮助信息
-	if (!registryPath || registryPath === '/') {
+	// 如果访问根路径或 docker-proxy 路径，返回帮助信息
+	if (registryPath === '/' || registryPath === '') {
 		return new Response(
 			JSON.stringify({
 				message: 'Docker Registry Proxy with Authentication',
 				usage: {
-					login: 'docker login geo.hns.cool',
-					credentials: 'Use your appId as username and apiKey as password',
-					pull: 'docker pull geo.hns.cool/library/nginx:latest',
+					method1: {
+						description: 'Standard registry-mirrors configuration',
+						steps: [
+							'1. docker login geo.hns.cool',
+							'2. Configure daemon.json: {"registry-mirrors": ["https://geo.hns.cool"]}',
+							'3. docker pull nginx:latest'
+						]
+					},
+					method2: {
+						description: 'Direct pull with domain prefix',
+						steps: [
+							'1. docker login geo.hns.cool',
+							'2. docker pull geo.hns.cool/library/nginx:latest'
+						]
+					},
+					login: 'Use your appId as username and apiKey as password'
 				},
 				upstream: mergedConfig.upstreamRegistry,
 				authRequired: mergedConfig.requireAuth,
