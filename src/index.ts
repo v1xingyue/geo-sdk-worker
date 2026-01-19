@@ -3,6 +3,8 @@
  * 根据用户所在地区返回不同的 SDK 内容
  */
 
+import { handleDockerRegistryProxy, handleDockerHubAuth } from './docker-registry-proxy';
+
 interface Env {
 	API_KEYS: KVNamespace;
 	GITHUB_CLIENT_ID: string;
@@ -47,7 +49,15 @@ export default {
 		}
 
 		// 路由处理
-		if (url.pathname === '/sdk.js') {
+		// Docker Registry 代理
+		if (url.pathname.startsWith('/docker-proxy')) {
+			return handleDockerRegistryProxy(request, {
+				enableCache: true,
+				cacheTTL: 3600,
+			});
+		} else if (url.pathname === '/docker-auth') {
+			return handleDockerHubAuth(request);
+		} else if (url.pathname === '/sdk.js') {
 			return handleSDK(country, corsHeaders);
 		} else if (url.pathname === '/api/geo') {
 			return handleGeoInfo(request, corsHeaders);
